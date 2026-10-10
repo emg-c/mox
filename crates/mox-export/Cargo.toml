@@ -1,0 +1,17 @@
+[package]
+name = "mox-export"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+mox-format.workspace = true
+mox-payload.workspace = true
+thiserror.workspace = true
+crc32fast.workspace = true
+zip.workspace = true
+apple-codesign.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
