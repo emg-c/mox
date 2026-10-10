@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# 재생기를 Windows·macOS용으로 교차 빌드해 워크스테이션 /work/.mox-dist 에 둔다.
+# 사용법: scripts/xbuild        (처음 한 번은 scripts/setup-xbuild 먼저)
+set -euo pipefail
+rdev sync motion-capture >/dev/null
+exec rdev run rust:1.90-slim 'set -e
+export RUSTUP_HOME=/work/.mox-rustup CARGO_HOME=/work/.mox-cargo CARGO_TARGET_DIR=/work/.mox-target
+X=/work/.mox-xtools
+export PATH="$X/bin:$X/zig:$X/llvm-mingw/bin:$PATH"
+export HOME=$X/home XDG_CACHE_HOME=$X/cache ZIG_GLOBAL_CACHE_DIR=$X/cache/zig ZIG_LOCAL_CACHE_DIR=$X/cache/zig-local
+export SDKROOT=$(ls -d $X/sdk/MacOSX*.sdk | head -1) MACOSX_DEPLOYMENT_TARGET=12.0
+export CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER=x86_64-w64-mingw32-clang
+export CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS="-C link-arg=-static"
+mkdir -p "$HOME" /work/.mox-dist
+cd /work/motion-capture
+cargo +1.90 build --release --locked -p mox-player --target x86_64-pc-windows-gnullvm
+cargo +1.90 zigbuild --release --locked -p mox-player --target universal2-apple-darwin
+cp "$CARGO_TARGET_DIR/x86_64-pc-windows-gnullvm/release/mox-player.exe" /work/.mox-dist/mox-player-windows-x64.exe
+cp "$CARGO_TARGET_DIR/universal2-apple-darwin/release/mox-player" /work/.mox-dist/mox-player-macos-universal
+ls -l /work/.mox-dist'

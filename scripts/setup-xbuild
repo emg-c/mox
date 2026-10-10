@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# 교차 빌드 도구를 워크스테이션에 준비한다(한 번만 실행). 맥에는 아무것도 설치하지 않는다.
+set -euo pipefail
+SDK=/Library/Developer/CommandLineTools/SDKs/MacOSX26.2.sdk
+rdev sync motion-capture >/dev/null
+rdev run python:3.12-slim 'python3 -I /work/motion-capture/scripts/setup_xbuild.py'
+# macOS SDK는 이 맥의 Command Line Tools에 이미 있는 것을 복사만 한다
+rdev push "$SDK" /srv/workspace/.mox-xtools/sdk
+exec rdev run rust:1.90-slim 'export RUSTUP_HOME=/work/.mox-rustup CARGO_HOME=/work/.mox-cargo
+rustup target add --toolchain 1.90 aarch64-apple-darwin x86_64-apple-darwin x86_64-pc-windows-gnullvm >/dev/null 2>&1
+rustup target list --toolchain 1.90 --installed
+/work/.mox-xtools/bin/cargo-zigbuild --version
+/work/.mox-xtools/zig/zig version
+/work/.mox-xtools/llvm-mingw/bin/x86_64-w64-mingw32-clang --version | head -1
+ls -d /work/.mox-xtools/sdk/MacOSX*.sdk'
