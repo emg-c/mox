@@ -1,0 +1,10 @@
+{
+  "format": "mox",
+  "version": 1,
+  "meta": {"name":"검증용 매크로","created":"2026-10-10T00:00:00+09:00","recorded_on":"macos","screen":{"width":1512,"height":982,"scale":2.0,"unit":"point"}},
+  "play": {"repeat":1,"repeat_gap_ms":0,"speed":1.0,"timed":true,"min_gap_ms":5},
+  "events": [
+    {"d":0,"type":"key_down","key":"ShiftLeft"},
+    {"d":1500,"type":"key_up","key":"ShiftLeft"}
+  ]
+}
