@@ -17,3 +17,7 @@ pub fn permission_status() -> Permission {
 }
 
 pub fn open_settings(_which: Access) {}
+
+pub fn confirm(_header: &str, _message: &str) -> bool {
+    true
+}

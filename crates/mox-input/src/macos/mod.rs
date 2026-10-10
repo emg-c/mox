@@ -2,14 +2,13 @@
 
 mod capture;
 mod clock;
+mod dialog;
 mod ffi;
 mod inject;
 
 use std::sync::mpsc::Sender;
 
-use mox_engine::{
-    CaptureGuard, Clock, InjectEvent, InputBackend, InputError, RawEvent,
-};
+use mox_engine::{CaptureGuard, Clock, InjectEvent, InputBackend, InputError, RawEvent};
 use mox_format::{Os, ScreenInfo, Unit};
 
 use crate::{Access, Permission};
@@ -72,4 +71,8 @@ pub fn open_settings(which: Access) {
     };
     let url = format!("x-apple.systempreferences:com.apple.preference.security?{anchor}");
     let _ = std::process::Command::new("open").arg(url).status();
+}
+
+pub fn confirm(header: &str, message: &str) -> bool {
+    dialog::confirm(header, message)
 }

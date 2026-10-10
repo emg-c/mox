@@ -92,9 +92,13 @@ fn corrupted_payload_is_rejected() {
 }
 
 #[test]
-fn without_info_reports_that_playback_is_not_built_yet() {
+fn without_info_attempts_playback_and_fails_gracefully_without_backend() {
+    // 이 바이너리는 리눅스 테스트 빌드라 입력 백엔드가 없다(unsupported). 재생을 시도하면
+    // 패닉 없이 종료코드 1과 한국어 오류를 내야 한다. (macOS 실기 재생은 Task 7 수동 검증.)
     let dir = tempfile::tempdir().unwrap();
     let (exe, _) = exported(dir.path());
     let out = Command::new(&exe).output().unwrap();
-    assert_eq!(out.status.code(), Some(2));
+    let (_, stderr) = text(&out);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(stderr.contains("입력 계층"), "{stderr}");
 }
