@@ -1,0 +1,13 @@
+[package]
+name = "mox-edit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+mox-format.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
