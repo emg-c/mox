@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# 워크스테이션 컨테이너에서 cargo를 실행한다. 맥에서는 빌드하지 않는다.
+# 사용법: scripts/wcargo test -p mox-format
+# rust 공식 이미지에는 clippy/rustfmt가 없어서, 툴체인을 프로젝트 밖 캐시(/work/.mox-rustup)에 받아 쓴다.
+# (CARGO_HOME을 바꾸면 rustup이 경고와 함께 0이 아닌 코드를 내므로, 설치 결과로 cargo 실행을 막지 않는다.)
+set -euo pipefail
+rdev sync motion-capture >/dev/null
+exec rdev run rust:1.90-slim "export RUSTUP_HOME=/work/.mox-rustup CARGO_HOME=/work/.mox-cargo CARGO_TARGET_DIR=/work/.mox-target; cargo +1.90 clippy --version >/dev/null 2>&1 || rustup toolchain install 1.90 --profile minimal -c clippy -c rustfmt >/dev/null 2>&1; cd /work/motion-capture && cargo +1.90 $*"

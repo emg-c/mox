@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = ["crates/mox-format", "crates/mox-edit", "crates/mox-engine"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.90"
+repository = "https://github.com/emg-c/mox"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }  # 실수를 정확히 왕복시킨다 (기본 파서는 마지막 자리가 바뀔 수 있음)
+thiserror = "2"
+proptest = "1"
+tempfile = "3"
+mox-format = { path = "crates/mox-format" }
+mox-edit = { path = "crates/mox-edit" }
+mox-engine = { path = "crates/mox-engine" }
