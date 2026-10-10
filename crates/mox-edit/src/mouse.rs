@@ -86,7 +86,7 @@ pub fn remove_moves(events: &mut Vec<Event>) -> usize {
     remove_where(events, |_, e| e.is_move())
 }
 
-/// 마우스 이벤트(이동·클릭·휠)를 모두 지운다. 원본 원본 매크로 도구의 "마우스 이벤트 없애기".
+/// 마우스 이벤트(이동·클릭·휠)를 모두 지운다. 기존 매크로 도구의 "마우스 이벤트 없애기".
 pub fn remove_mouse(events: &mut Vec<Event>) -> usize {
     remove_where(events, |_, e| e.is_mouse())
 }
