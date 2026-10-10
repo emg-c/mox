@@ -10,7 +10,10 @@ export PATH="$X/bin:$X/zig:$X/llvm-mingw/bin:$PATH"
 export HOME=$X/home XDG_CACHE_HOME=$X/cache ZIG_GLOBAL_CACHE_DIR=$X/cache/zig ZIG_LOCAL_CACHE_DIR=$X/cache/zig-local
 export SDKROOT=$(ls -d $X/sdk/MacOSX*.sdk | head -1) MACOSX_DEPLOYMENT_TARGET=12.0
 export CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER=x86_64-w64-mingw32-clang
-export CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS="-C link-arg=-static"
+# 추출할 때 서명 load command를 넣을 헤더 공간을 남긴다 (zig 링커는 x86_64 slice에 여유를 두지 않음)
+export CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS="-C link-arg=-Wl,-headerpad_max_install_names"
+export CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS="-C link-arg=-Wl,-headerpad_max_install_names"
+export CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS="-C target-feature=+crt-static"  # libunwind 등을 exe에 정적으로 넣는다 (link-arg=-static만으로는 libunwind.dll에 의존함)
 mkdir -p "$HOME" /work/.mox-dist
 cd /work/motion-capture
 cargo +1.90 build --release --locked -p mox-player --target x86_64-pc-windows-gnullvm
