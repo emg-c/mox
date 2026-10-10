@@ -1,0 +1,141 @@
+name: release
+
+# vX.Y.Z 태그를 push하면 각 OS에서 빌드해 GitHub Release에 바이너리를 첨부한다.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  # 태그(vX.Y.Z)와 Cargo.toml 버전이 일치하는지 확인한다.
+  verify-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tag matches Cargo.toml version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          cargo_ver=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "tag=$tag cargo=$cargo_ver"
+          test "$tag" = "$cargo_ver" || { echo "::error::tag v$tag != Cargo.toml $cargo_ver"; exit 1; }
+
+  # 추출 기능에 내장할 헤드리스 재생기(대상별). 아티팩트로 공유한다.
+  player-macos:
+    needs: verify-version
+    runs-on: macos-14
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "12.0"
+      RUSTFLAGS: "-C link-arg=-Wl,-headerpad_max_install_names"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - run: |
+          cargo build --release -p mox-player --target aarch64-apple-darwin
+          cargo build --release -p mox-player --target x86_64-apple-darwin
+          lipo -create -output mox-player-macos-universal \
+            target/aarch64-apple-darwin/release/mox-player \
+            target/x86_64-apple-darwin/release/mox-player
+      - uses: actions/upload-artifact@v4
+        with:
+          name: player-macos
+          path: mox-player-macos-universal
+
+  player-windows:
+    needs: verify-version
+    runs-on: windows-2022
+    env:
+      RUSTFLAGS: "-C target-feature=+crt-static"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release -p mox-player
+      - uses: actions/upload-artifact@v4
+        with:
+          name: player-windows
+          path: target/release/mox-player.exe
+
+  # 양쪽 재생기를 내장한 최종 앱(GUI + CLI)을 OS별로 빌드해 릴리즈에 올린다.
+  app-macos:
+    needs: [player-macos, player-windows]
+    runs-on: macos-14
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "12.0"
+      RUSTFLAGS: "-C link-arg=-Wl,-headerpad_max_install_names"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: actions/download-artifact@v4
+        with:
+          name: player-macos
+          path: players
+      - uses: actions/download-artifact@v4
+        with:
+          name: player-windows
+          path: players
+      - name: Build universal app
+        env:
+          MOX_MAC_PLAYER: ${{ github.workspace }}/players/mox-player-macos-universal
+          MOX_WIN_PLAYER: ${{ github.workspace }}/players/mox-player.exe
+        run: |
+          cargo build --release -p mox-app --target aarch64-apple-darwin
+          cargo build --release -p mox-app --target x86_64-apple-darwin
+          lipo -create -output mox-universal \
+            target/aarch64-apple-darwin/release/mox \
+            target/x86_64-apple-darwin/release/mox
+      - name: Assemble, sign, zip Mox.app
+        run: |
+          APP=Mox.app
+          mkdir -p "$APP/Contents/MacOS"
+          cp mox-universal "$APP/Contents/MacOS/mox"
+          ver="${GITHUB_REF_NAME#v}"
+          printf '%s\n' \
+            '<?xml version="1.0" encoding="UTF-8"?>' \
+            '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+            '<plist version="1.0"><dict>' \
+            '<key>CFBundleName</key><string>Mox</string>' \
+            '<key>CFBundleDisplayName</key><string>Mox</string>' \
+            '<key>CFBundleExecutable</key><string>mox</string>' \
+            '<key>CFBundleIdentifier</key><string>com.mox.app</string>' \
+            '<key>CFBundlePackageType</key><string>APPL</string>' \
+            "<key>CFBundleShortVersionString</key><string>${ver}</string>" \
+            '<key>LSMinimumSystemVersion</key><string>12.0</string>' \
+            '<key>NSHighResolutionCapable</key><true/>' \
+            '</dict></plist>' > "$APP/Contents/Info.plist"
+          codesign -s - --force --deep "$APP"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "Mox-${GITHUB_REF_NAME}-macos.zip"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: Mox-${{ github.ref_name }}-macos.zip
+
+  app-windows:
+    needs: [player-macos, player-windows]
+    runs-on: windows-2022
+    env:
+      RUSTFLAGS: "-C target-feature=+crt-static"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/download-artifact@v4
+        with:
+          name: player-macos
+          path: players
+      - uses: actions/download-artifact@v4
+        with:
+          name: player-windows
+          path: players
+      - name: Build app
+        env:
+          MOX_MAC_PLAYER: ${{ github.workspace }}\players\mox-player-macos-universal
+          MOX_WIN_PLAYER: ${{ github.workspace }}\players\mox-player.exe
+        run: cargo build --release -p mox-app
+      - name: Rename
+        run: Copy-Item target/release/mox.exe "Mox-${{ github.ref_name }}-windows.exe"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: Mox-${{ github.ref_name }}-windows.exe
