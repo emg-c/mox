@@ -55,3 +55,9 @@ pub fn permission_status() -> Permission {
 pub fn open_settings(which: Access) {
     os_impl::open_settings(which)
 }
+
+/// 개발용: 주 디스플레이 정보. probe 예제에서 쓴다.
+#[cfg(target_os = "macos")]
+pub fn macos_probe_screen() -> mox_format::ScreenInfo {
+    os_impl::primary_screen()
+}
