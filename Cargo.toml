@@ -1,6 +1,13 @@
 [workspace]
-resolver = "2"
-members = ["crates/mox-format", "crates/mox-edit", "crates/mox-engine"]
+resolver = "3"
+members = [
+    "crates/mox-format",
+    "crates/mox-edit",
+    "crates/mox-engine",
+    "crates/mox-payload",
+    "crates/mox-export",
+    "crates/mox-player",
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -14,6 +21,16 @@ serde_json = { version = "1", features = ["float_roundtrip"] }  # 실수를 정�
 thiserror = "2"
 proptest = "1"
 tempfile = "3"
+crc32fast = "1.5"
+zip = { version = "9", default-features = false, features = ["deflate"] }
+apple-codesign = { version = "0.29", default-features = false }  # 기본 기능(notarize)은 AWS SDK를 끌어온다
 mox-format = { path = "crates/mox-format" }
 mox-edit = { path = "crates/mox-edit" }
 mox-engine = { path = "crates/mox-engine" }
+mox-payload = { path = "crates/mox-payload" }
+mox-export = { path = "crates/mox-export" }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
