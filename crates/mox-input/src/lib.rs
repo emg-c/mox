@@ -4,6 +4,9 @@
 //! 리눅스 등 지원하지 않는 OS에서는 `unsupported` 모듈이 컴파일을 통과시키되 실행 시 오류를 낸다.
 
 pub mod keymap;
+mod selftest;
+
+pub use selftest::{selftest, SelftestReport};
 
 use mox_engine::{Clock, InputBackend, InputError};
 

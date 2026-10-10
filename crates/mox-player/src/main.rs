@@ -6,14 +6,35 @@ use mox_player::summary::{current_os, summary};
 
 fn main() -> ExitCode {
     let mut info = false;
+    let mut selftest = false;
     let mut file: Option<PathBuf> = None;
     for arg in std::env::args_os().skip(1) {
         if arg == "--info" {
             info = true;
+        } else if arg == "selftest" {
+            selftest = true;
         } else if file.is_none() {
             file = Some(PathBuf::from(arg));
         }
     }
+
+    if selftest {
+        return match mox_input::selftest() {
+            Ok(report) => {
+                println!("{report}");
+                if report.ok() {
+                    ExitCode::SUCCESS
+                } else {
+                    ExitCode::from(1)
+                }
+            }
+            Err(e) => {
+                eprintln!("selftest 실패: {e}");
+                ExitCode::from(1)
+            }
+        };
+    }
+
     let exe = match std::env::current_exe() {
         Ok(p) => p,
         Err(e) => {

@@ -8,6 +8,7 @@ repository.workspace = true
 [dependencies]
 mox-format.workspace = true
 mox-engine.workspace = true
+mox-input.workspace = true
 mox-payload.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

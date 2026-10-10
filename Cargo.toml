@@ -28,6 +28,7 @@ apple-codesign = { version = "0.29", default-features = false }  # 기본 기능
 mox-format = { path = "crates/mox-format" }
 mox-edit = { path = "crates/mox-edit" }
 mox-engine = { path = "crates/mox-engine" }
+mox-input = { path = "crates/mox-input" }
 mox-payload = { path = "crates/mox-payload" }
 mox-export = { path = "crates/mox-export" }
 
