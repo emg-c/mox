@@ -1,5 +1,5 @@
 //! 개발용: 미리 빌드한 재생기에 .mox를 결합해 추출 파일을 만든다.
-//! cargo run -p mox-export --example export -- <재생기> <windows|macos> <입력.mox> <출력>
+//! cargo run -p mox-export --example export -- <재생기> <windows|macos> <입력.mox> <출력> [--no-confirm]
 
 use std::path::Path;
 
@@ -7,12 +7,20 @@ use mox_payload::{ExportSettings, Payload};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let [stub, target, input, output] = args.as_slice() else {
-        return Err("사용법: export <재생기> <windows|macos> <입력.mox> <출력>".into());
+    let (positional, flags): (Vec<String>, Vec<String>) =
+        args.into_iter().partition(|a| !a.starts_with("--"));
+    let [stub, target, input, output] = positional.as_slice() else {
+        return Err(
+            "사용법: export <재생기> <windows|macos> <입력.mox> <출력> [--no-confirm]".into(),
+        );
     };
+    let mut settings = ExportSettings::default();
+    if flags.iter().any(|f| f == "--no-confirm") {
+        settings.confirm = false;
+    }
     let stub = std::fs::read(stub)?;
     let payload = Payload {
-        settings: ExportSettings::default(),
+        settings,
         mox: mox_format::load(Path::new(input))?,
     };
     let bytes = match target.as_str() {
