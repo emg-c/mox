@@ -5,7 +5,9 @@ use mox_engine::{Clock, InputBackend, InputError, SystemClock};
 use crate::{Access, Permission};
 
 pub fn backend() -> Result<Box<dyn InputBackend>, InputError> {
-    Err(InputError::Os("이 운영체제의 입력 계층은 지원하지 않습니다".into()))
+    Err(InputError::Os(
+        "이 운영체제의 입력 계층은 지원하지 않습니다".into(),
+    ))
 }
 
 pub fn clock() -> Box<dyn Clock> {

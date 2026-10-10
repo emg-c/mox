@@ -3,7 +3,10 @@ fn main() {
     #[cfg(target_os = "macos")]
     {
         let s = mox_input::macos_probe_screen();
-        println!("screen {}x{} scale={} unit={:?}", s.width, s.height, s.scale, s.unit);
+        println!(
+            "screen {}x{} scale={} unit={:?}",
+            s.width, s.height, s.scale, s.unit
+        );
     }
     #[cfg(not(target_os = "macos"))]
     println!("macOS 전용 도구입니다");

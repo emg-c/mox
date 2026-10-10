@@ -23,7 +23,12 @@ pub fn primary_screen() -> ScreenInfo {
         let (w_pt, h_pt) = (bounds.size.width, bounds.size.height);
         let w_px = ffi::CGDisplayPixelsWide(d) as f64;
         let scale = if w_pt > 0.0 { w_px / w_pt } else { 1.0 };
-        ScreenInfo { width: w_pt as u32, height: h_pt as u32, scale, unit: Unit::Point }
+        ScreenInfo {
+            width: w_pt as u32,
+            height: h_pt as u32,
+            scale,
+            unit: Unit::Point,
+        }
     }
 }
 
@@ -50,7 +55,9 @@ impl InputBackend for MacosBackend {
 }
 
 pub fn backend() -> Result<Box<dyn InputBackend>, InputError> {
-    Ok(Box::new(MacosBackend { injector: inject::Injector::new()? }))
+    Ok(Box::new(MacosBackend {
+        injector: inject::Injector::new()?,
+    }))
 }
 
 pub fn clock() -> Box<dyn Clock> {

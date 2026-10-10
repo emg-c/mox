@@ -29,7 +29,11 @@ fn now_dur(start: Instant) -> std::time::Duration {
 fn send(ctx: &TapCtx, event: ffi::CGEventRef, kind: RawKind) {
     let injected = unsafe { ffi::CGEventGetIntegerValueField(event, ffi::kCGEventSourceUserData) }
         == ffi::MOX_MAGIC;
-    let _ = ctx.tx.send(RawEvent { at: now_dur(ctx.start), kind, injected });
+    let _ = ctx.tx.send(RawEvent {
+        at: now_dur(ctx.start),
+        kind,
+        injected,
+    });
 }
 
 fn location(event: ffi::CGEventRef) -> (i32, i32) {
@@ -38,10 +42,14 @@ fn location(event: ffi::CGEventRef) -> (i32, i32) {
 }
 
 fn key_of(event: ffi::CGEventRef) -> Key {
-    let vk = unsafe { ffi::CGEventGetIntegerValueField(event, ffi::kCGKeyboardEventKeycode) } as u16;
+    let vk =
+        unsafe { ffi::CGEventGetIntegerValueField(event, ffi::kCGKeyboardEventKeycode) } as u16;
     match keymap::keycode_to_code(vk) {
         Some(code) => Key::Code(code),
-        None => Key::Unknown { raw: vk as u32, os: Os::Macos },
+        None => Key::Unknown {
+            raw: vk as u32,
+            os: Os::Macos,
+        },
     }
 }
 
@@ -81,14 +89,36 @@ extern "C" fn tap_callback(
         | ffi::kCGEventLeftMouseDragged
         | ffi::kCGEventRightMouseDragged
         | ffi::kCGEventOtherMouseDragged => Some(RawKind::MouseMove { x, y }),
-        ffi::kCGEventLeftMouseDown => Some(RawKind::MouseDown { button: Button::Left, x, y }),
-        ffi::kCGEventLeftMouseUp => Some(RawKind::MouseUp { button: Button::Left, x, y }),
-        ffi::kCGEventRightMouseDown => Some(RawKind::MouseDown { button: Button::Right, x, y }),
-        ffi::kCGEventRightMouseUp => Some(RawKind::MouseUp { button: Button::Right, x, y }),
-        ffi::kCGEventOtherMouseDown => {
-            Some(RawKind::MouseDown { button: other_button(event), x, y })
-        }
-        ffi::kCGEventOtherMouseUp => Some(RawKind::MouseUp { button: other_button(event), x, y }),
+        ffi::kCGEventLeftMouseDown => Some(RawKind::MouseDown {
+            button: Button::Left,
+            x,
+            y,
+        }),
+        ffi::kCGEventLeftMouseUp => Some(RawKind::MouseUp {
+            button: Button::Left,
+            x,
+            y,
+        }),
+        ffi::kCGEventRightMouseDown => Some(RawKind::MouseDown {
+            button: Button::Right,
+            x,
+            y,
+        }),
+        ffi::kCGEventRightMouseUp => Some(RawKind::MouseUp {
+            button: Button::Right,
+            x,
+            y,
+        }),
+        ffi::kCGEventOtherMouseDown => Some(RawKind::MouseDown {
+            button: other_button(event),
+            x,
+            y,
+        }),
+        ffi::kCGEventOtherMouseUp => Some(RawKind::MouseUp {
+            button: other_button(event),
+            x,
+            y,
+        }),
         ffi::kCGEventScrollWheel => {
             let dy = unsafe {
                 ffi::CGEventGetIntegerValueField(event, ffi::kCGScrollWheelEventDeltaAxis1)
@@ -189,13 +219,13 @@ pub fn start_capture(tx: Sender<RawEvent>) -> Result<CaptureGuard, InputError> {
             )
         };
         if port.is_null() {
-            let _ = setup_tx.send(Err("입력 모니터링 권한이 없거나 탭을 만들 수 없습니다".into()));
+            let _ = setup_tx.send(Err(
+                "입력 모니터링 권한이 없거나 탭을 만들 수 없습니다".into()
+            ));
             return;
         }
         RE_ENABLE.with(|p| *p.borrow_mut() = port);
-        let source = unsafe {
-            ffi::CFMachPortCreateRunLoopSource(ptr::null(), port, 0)
-        };
+        let source = unsafe { ffi::CFMachPortCreateRunLoopSource(ptr::null(), port, 0) };
         let run_loop = unsafe { ffi::CFRunLoopGetCurrent() };
         unsafe {
             ffi::CFRunLoopAddSource(run_loop, source, ffi::kCFRunLoopCommonModes);

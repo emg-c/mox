@@ -27,7 +27,11 @@ fn main() -> ExitCode {
         return match mox_input::selftest() {
             Ok(report) => {
                 println!("{report}");
-                if report.ok() { ExitCode::SUCCESS } else { ExitCode::from(1) }
+                if report.ok() {
+                    ExitCode::SUCCESS
+                } else {
+                    ExitCode::from(1)
+                }
             }
             Err(e) => {
                 eprintln!("selftest 실패: {e}");
@@ -65,7 +69,9 @@ fn play_loaded(loaded: Loaded) -> ExitCode {
     // 재생에는 손쉬운 사용(주입)과 입력 모니터링(중지 키 감지)이 모두 필요하다.
     let perm = permission_status();
     if !perm.inject {
-        eprintln!("재생하려면 '손쉬운 사용' 권한이 필요합니다. 설정에서 허용한 뒤 다시 실행하세요.");
+        eprintln!(
+            "재생하려면 '손쉬운 사용' 권한이 필요합니다. 설정에서 허용한 뒤 다시 실행하세요."
+        );
         open_settings(Access::Inject);
         return ExitCode::from(1);
     }
@@ -107,7 +113,10 @@ fn play_loaded(loaded: Loaded) -> ExitCode {
     let clk = clock();
     let stop = AtomicBool::new(false);
     let (stop_key, _) = effective_stop_key(&loaded.payload.mox.play, os);
-    let opts = PlayOptions { stop_key, failsafe: true };
+    let opts = PlayOptions {
+        stop_key,
+        failsafe: true,
+    };
     match play(&loaded.payload.mox, &*b, &*clk, &stop, &opts) {
         Ok(report) => {
             println!(

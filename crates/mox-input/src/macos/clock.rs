@@ -16,7 +16,11 @@ impl MacosClock {
     pub fn new() -> Self {
         let mut tb = ffi::mach_timebase_info_data_t { numer: 0, denom: 0 };
         unsafe { ffi::mach_timebase_info(&mut tb) };
-        Self { start: unsafe { ffi::mach_absolute_time() }, numer: tb.numer as u64, denom: tb.denom as u64 }
+        Self {
+            start: unsafe { ffi::mach_absolute_time() },
+            numer: tb.numer as u64,
+            denom: tb.denom as u64,
+        }
     }
 
     fn ticks_to_nanos(&self, ticks: u64) -> u128 {

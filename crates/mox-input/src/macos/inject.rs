@@ -25,7 +25,10 @@ impl Injector {
     }
 
     fn point(x: i32, y: i32) -> ffi::CGPoint {
-        ffi::CGPoint { x: x as f64, y: y as f64 }
+        ffi::CGPoint {
+            x: x as f64,
+            y: y as f64,
+        }
     }
 
     fn post(&self, event: ffi::CGEventRef) {
@@ -40,9 +43,8 @@ impl Injector {
     }
 
     fn mouse(&self, etype: u32, x: i32, y: i32, button: u32, clicks: Option<u32>) {
-        let event = unsafe {
-            ffi::CGEventCreateMouseEvent(self.source, etype, Self::point(x, y), button)
-        };
+        let event =
+            unsafe { ffi::CGEventCreateMouseEvent(self.source, etype, Self::point(x, y), button) };
         if let Some(c) = clicks {
             unsafe {
                 ffi::CGEventSetIntegerValueField(event, ffi::kCGMouseEventClickState, c as i64)
@@ -86,11 +88,21 @@ impl Injector {
                 let (etype, btn) = drag_type(button);
                 self.mouse(etype, x, y, btn, None);
             }
-            InjectEvent::Down { button, x, y, clicks } => {
+            InjectEvent::Down {
+                button,
+                x,
+                y,
+                clicks,
+            } => {
                 let (down_type, _, btn) = button_types(button);
                 self.mouse(down_type, x, y, btn, Some(clicks));
             }
-            InjectEvent::Up { button, x, y, clicks } => {
+            InjectEvent::Up {
+                button,
+                x,
+                y,
+                clicks,
+            } => {
                 let (_, up_type, btn) = button_types(button);
                 self.mouse(up_type, x, y, btn, Some(clicks));
             }
@@ -144,13 +156,21 @@ impl Drop for Injector {
 /// (down 타입, up 타입, 버튼 번호)
 fn button_types(b: Button) -> (u32, u32, u32) {
     match b {
-        Button::Left => (ffi::kCGEventLeftMouseDown, ffi::kCGEventLeftMouseUp, ffi::kCGMouseButtonLeft),
-        Button::Right => {
-            (ffi::kCGEventRightMouseDown, ffi::kCGEventRightMouseUp, ffi::kCGMouseButtonRight)
-        }
-        Button::Middle => {
-            (ffi::kCGEventOtherMouseDown, ffi::kCGEventOtherMouseUp, ffi::kCGMouseButtonCenter)
-        }
+        Button::Left => (
+            ffi::kCGEventLeftMouseDown,
+            ffi::kCGEventLeftMouseUp,
+            ffi::kCGMouseButtonLeft,
+        ),
+        Button::Right => (
+            ffi::kCGEventRightMouseDown,
+            ffi::kCGEventRightMouseUp,
+            ffi::kCGMouseButtonRight,
+        ),
+        Button::Middle => (
+            ffi::kCGEventOtherMouseDown,
+            ffi::kCGEventOtherMouseUp,
+            ffi::kCGMouseButtonCenter,
+        ),
         Button::Back => (ffi::kCGEventOtherMouseDown, ffi::kCGEventOtherMouseUp, 3),
         Button::Forward => (ffi::kCGEventOtherMouseDown, ffi::kCGEventOtherMouseUp, 4),
     }

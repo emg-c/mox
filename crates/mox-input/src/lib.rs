@@ -4,6 +4,7 @@
 //! 리눅스 등 지원하지 않는 OS에서는 `unsupported` 모듈이 컴파일을 통과시키되 실행 시 오류를 낸다.
 
 pub mod keymap;
+pub mod keymap_win;
 mod selftest;
 
 pub use selftest::{selftest, SelftestReport};
@@ -21,7 +22,10 @@ pub struct Permission {
 
 impl Permission {
     /// 모든 권한이 있는 상태(권한 개념이 없는 OS의 기본값).
-    pub const GRANTED: Permission = Permission { capture: true, inject: true };
+    pub const GRANTED: Permission = Permission {
+        capture: true,
+        inject: true,
+    };
 }
 
 /// 열어 줄 시스템 설정 창.
@@ -35,7 +39,11 @@ pub enum Access {
 #[path = "macos/mod.rs"]
 mod os_impl;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
+#[path = "windows/mod.rs"]
+mod os_impl;
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 #[path = "unsupported.rs"]
 mod os_impl;
 

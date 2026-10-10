@@ -30,10 +30,26 @@ impl SelftestReport {
 
 impl std::fmt::Display for SelftestReport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "권한  입력모니터링={} 손쉬운사용={}", self.capture_perm, self.inject_perm)?;
-        writeln!(f, "주입 {}개 / 캡처로 되돌아온 주입 이벤트 {}개", self.injected, self.captured_injected)?;
-        writeln!(f, "왕복  이동={} 키={} 휠={}", self.saw_move, self.saw_key, self.saw_wheel)?;
-        writeln!(f, "시계 오차  {:.2}ms (100ms 대기 기준)", self.clock_error_ms)?;
+        writeln!(
+            f,
+            "권한  입력모니터링={} 손쉬운사용={}",
+            self.capture_perm, self.inject_perm
+        )?;
+        writeln!(
+            f,
+            "주입 {}개 / 캡처로 되돌아온 주입 이벤트 {}개",
+            self.injected, self.captured_injected
+        )?;
+        writeln!(
+            f,
+            "왕복  이동={} 키={} 휠={}",
+            self.saw_move, self.saw_key, self.saw_wheel
+        )?;
+        writeln!(
+            f,
+            "시계 오차  {:.2}ms (100ms 대기 기준)",
+            self.clock_error_ms
+        )?;
         write!(f, "결과  {}", if self.ok() { "통과" } else { "실패" })
     }
 }
@@ -48,9 +64,20 @@ pub fn selftest() -> Result<SelftestReport, InputError> {
 
     let seq = [
         InjectEvent::MoveTo { x: 120, y: 120 },
-        InjectEvent::KeyDown { key: KeyCode::F13, mods: Mods::default() },
-        InjectEvent::KeyUp { key: KeyCode::F13, mods: Mods::default() },
-        InjectEvent::Wheel { dx: 0, dy: -1, x: 120, y: 120 },
+        InjectEvent::KeyDown {
+            key: KeyCode::F13,
+            mods: Mods::default(),
+        },
+        InjectEvent::KeyUp {
+            key: KeyCode::F13,
+            mods: Mods::default(),
+        },
+        InjectEvent::Wheel {
+            dx: 0,
+            dy: -1,
+            x: 120,
+            y: 120,
+        },
     ];
     for ev in &seq {
         b.inject(ev)?;
