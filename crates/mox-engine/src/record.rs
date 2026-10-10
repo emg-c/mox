@@ -54,6 +54,11 @@ impl Recorder {
         self.stopped
     }
 
+    /// 지금까지 확정된 이벤트. 실시간 표시용(보류 중인 이동은 finish에서 확정됨).
+    pub fn events(&self) -> &[Event] {
+        &self.events
+    }
+
     /// 원시 입력 하나를 처리한다. 중지 키가 눌렸으면(이미 멈췄으면) true.
     pub fn push(&mut self, ev: RawEvent) -> bool {
         if self.stopped || ev.injected {

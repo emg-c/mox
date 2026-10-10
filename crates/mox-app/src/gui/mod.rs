@@ -13,7 +13,9 @@ use mox_edit::{
     cap_delays, remove_key_repeats, remove_mouse, remove_moves, scale_delays, thin_moves_half,
     to_abs, to_ratio, History, Sel,
 };
-use mox_engine::{effective_stop_key, play, record, PlayOptions, RecordOptions};
+use std::time::Duration;
+
+use mox_engine::{effective_stop_key, play, PlayOptions, RawEvent, RecordOptions, Recorder};
 use mox_format::{
     load, save, Button, Event, EventKind, Key, Macro, Meta, Os, Pos, ScreenInfo, Unit,
 };
@@ -65,11 +67,17 @@ fn install_korean_font(ctx: &egui::Context) {
     }
 }
 
+/// 녹화 스레드가 GUI로 보내는 메시지. 이벤트를 실시간으로 흘려보내고 끝에 완료를 알린다.
+enum RecMsg {
+    Events(Vec<Event>),
+    Done(Result<ScreenInfo, String>),
+}
+
 enum Mode {
     Idle,
     Recording {
         cancel: Arc<AtomicBool>,
-        rx: Receiver<Result<Vec<Event>, String>>,
+        rx: Receiver<RecMsg>,
     },
     Playing {
         stop: Arc<AtomicBool>,
@@ -101,6 +109,41 @@ impl Default for MoxApp {
     }
 }
 
+/// 강조색과 종류별 색. 표·버튼에서 쓴다.
+const ACCENT: egui::Color32 = egui::Color32::from_rgb(0x4d, 0x9b, 0xff);
+const STRIPE: egui::Color32 = egui::Color32::from_rgb(0x2a, 0x2d, 0x33);
+const C_MOVE: egui::Color32 = egui::Color32::from_rgb(0x9a, 0xa0, 0xa6);
+const C_CLICK: egui::Color32 = egui::Color32::from_rgb(0x6c, 0xb6, 0xff);
+const C_KEY: egui::Color32 = egui::Color32::from_rgb(0x8c, 0xd9, 0x8c);
+const C_WHEEL: egui::Color32 = egui::Color32::from_rgb(0xe0, 0xb0, 0x6a);
+
+/// 다크 테마 + 여백·폰트 등 쉬운 스타일만 적용한다.
+fn setup_style(ctx: &egui::Context) {
+    use egui::{FontFamily, FontId, TextStyle};
+    ctx.set_visuals(egui::Visuals::dark());
+    let mut style = (*ctx.style()).clone();
+    style.visuals.selection.bg_fill = ACCENT.linear_multiply(0.45);
+    style.visuals.hyperlink_color = ACCENT;
+    style.spacing.item_spacing = egui::vec2(8.0, 6.0);
+    style.spacing.button_padding = egui::vec2(12.0, 7.0);
+    style
+        .text_styles
+        .insert(TextStyle::Body, FontId::new(14.0, FontFamily::Proportional));
+    style.text_styles.insert(
+        TextStyle::Button,
+        FontId::new(14.0, FontFamily::Proportional),
+    );
+    style.text_styles.insert(
+        TextStyle::Monospace,
+        FontId::new(13.0, FontFamily::Monospace),
+    );
+    style.text_styles.insert(
+        TextStyle::Heading,
+        FontId::new(18.0, FontFamily::Proportional),
+    );
+    ctx.set_style(style);
+}
+
 pub fn run() -> ExitCode {
     let opts = eframe::NativeOptions::default();
     let r = eframe::run_native(
@@ -108,6 +151,7 @@ pub fn run() -> ExitCode {
         opts,
         Box::new(|cc| {
             install_korean_font(&cc.egui_ctx);
+            setup_style(&cc.egui_ctx);
             Ok(Box::new(MoxApp::default()))
         }),
     );
@@ -117,6 +161,15 @@ pub fn run() -> ExitCode {
             eprintln!("GUI 오류: {e}");
             ExitCode::from(1)
         }
+    }
+}
+
+fn type_color(e: &Event) -> egui::Color32 {
+    match e.kind {
+        EventKind::Move { .. } => C_MOVE,
+        EventKind::Down { .. } | EventKind::Up { .. } => C_CLICK,
+        EventKind::Wheel { .. } => C_WHEEL,
+        EventKind::KeyDown(_) | EventKind::KeyUp(_) => C_KEY,
     }
 }
 
@@ -239,16 +292,61 @@ impl MoxApp {
             self.status = "입력 모니터링 권한이 필요합니다".into();
             return;
         }
-        let (tx, rx) = std::sync::mpsc::channel();
+        // 새 녹화: 표를 비우고 시작한다(이벤트가 실시간으로 쌓인다).
+        self.doc.events.clear();
+        self.doc.meta.recorded_on = os;
+        self.doc.meta.created = crate::timeutil::now_iso();
+        self.selection.clear();
+        self.history = History::new(History::DEFAULT_CAP);
+
+        let (tx, rx) = std::sync::mpsc::channel::<RecMsg>();
         let cancel = Arc::new(AtomicBool::new(false));
         let c2 = cancel.clone();
         let stop_key = effective_stop_key(&self.doc.play, os).0;
         std::thread::spawn(move || {
-            let msg = match mox_input::backend() {
-                Ok(b) => record(&*b, RecordOptions::new(stop_key), &c2).map_err(|e| e.to_string()),
-                Err(e) => Err(e.to_string()),
+            let backend = match mox_input::backend() {
+                Ok(b) => b,
+                Err(e) => {
+                    let _ = tx.send(RecMsg::Done(Err(e.to_string())));
+                    return;
+                }
             };
-            let _ = tx.send(msg);
+            let screen = backend.primary_screen();
+            let (raw_tx, raw_rx) = std::sync::mpsc::channel::<RawEvent>();
+            let _guard = match backend.start_capture(raw_tx) {
+                Ok(g) => g,
+                Err(e) => {
+                    let _ = tx.send(RecMsg::Done(Err(e.to_string())));
+                    return;
+                }
+            };
+            let mut rec = Recorder::new(RecordOptions::new(stop_key));
+            let mut sent = 0usize;
+            loop {
+                if c2.load(Ordering::Relaxed) {
+                    break;
+                }
+                match raw_rx.recv_timeout(Duration::from_millis(50)) {
+                    Ok(ev) => {
+                        let stopped = rec.push(ev);
+                        let evs = rec.events();
+                        if evs.len() > sent {
+                            let _ = tx.send(RecMsg::Events(evs[sent..].to_vec()));
+                            sent = evs.len();
+                        }
+                        if stopped {
+                            break;
+                        }
+                    }
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+                }
+            }
+            let final_events = rec.finish();
+            if final_events.len() > sent {
+                let _ = tx.send(RecMsg::Events(final_events[sent..].to_vec()));
+            }
+            let _ = tx.send(RecMsg::Done(Ok(screen)));
         });
         self.mode = Mode::Recording { cancel, rx };
         self.status = format!("녹화 중… 중지: {stop_key} 또는 정지 버튼");
@@ -298,25 +396,34 @@ impl MoxApp {
 
     fn poll_mode(&mut self) {
         match &self.mode {
-            Mode::Recording { rx, .. } => match rx.try_recv() {
-                Ok(Ok(events)) => {
-                    if let Ok(b) = mox_input::backend() {
-                        self.doc.meta.screen = b.primary_screen();
+            Mode::Recording { rx, .. } => {
+                // 이번 프레임에 도착한 메시지를 모두 처리한다. 이벤트는 실시간으로 표에 쌓는다.
+                let mut done: Option<Result<ScreenInfo, String>> = None;
+                loop {
+                    match rx.try_recv() {
+                        Ok(RecMsg::Events(evs)) => self.doc.events.extend(evs),
+                        Ok(RecMsg::Done(r)) => {
+                            done = Some(r);
+                            break;
+                        }
+                        Err(TryRecvError::Empty) => break,
+                        Err(TryRecvError::Disconnected) => {
+                            done = Some(Err("녹화 스레드가 중단되었습니다".into()));
+                            break;
+                        }
                     }
-                    self.doc.meta.recorded_on = current_os();
-                    self.doc.events = events;
-                    self.selection.clear();
-                    self.history = History::new(History::DEFAULT_CAP);
-                    self.status = format!("녹화 완료: {}개 이벤트", self.doc.events.len());
+                }
+                if let Some(r) = done {
+                    match r {
+                        Ok(screen) => {
+                            self.doc.meta.screen = screen;
+                            self.status = format!("녹화 완료: {}개 이벤트", self.doc.events.len());
+                        }
+                        Err(e) => self.status = format!("녹화 오류: {e}"),
+                    }
                     self.mode = Mode::Idle;
                 }
-                Ok(Err(e)) => {
-                    self.status = format!("녹화 오류: {e}");
-                    self.mode = Mode::Idle;
-                }
-                Err(TryRecvError::Disconnected) => self.mode = Mode::Idle,
-                Err(TryRecvError::Empty) => {}
-            },
+            }
             Mode::Playing { rx, .. } => match rx.try_recv() {
                 Ok(msg) => {
                     self.status = msg.unwrap_or_else(|e| format!("재생 오류: {e}"));
@@ -488,12 +595,30 @@ impl eframe::App for MoxApp {
                 acc = acc.saturating_add(e.d);
                 cumulative.push(acc);
             }
+            let recording = matches!(self.mode, Mode::Recording { .. });
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
+                .stick_to_bottom(recording)
                 .show_rows(ui, row_h, total, |ui, range| {
                     for i in range {
                         let selected = self.selection.contains(&i);
                         let (ty, val) = describe(&self.doc.events[i]);
+                        let color = type_color(&self.doc.events[i]);
+                        // 줄무늬·선택 배경
+                        let bg = if selected {
+                            ACCENT.linear_multiply(0.30)
+                        } else if i % 2 == 1 {
+                            STRIPE
+                        } else {
+                            egui::Color32::TRANSPARENT
+                        };
+                        if bg != egui::Color32::TRANSPARENT {
+                            let rect = egui::Rect::from_min_size(
+                                ui.cursor().min,
+                                egui::vec2(ui.available_width(), row_h),
+                            );
+                            ui.painter().rect_filled(rect, 0.0, bg);
+                        }
                         ui.horizontal(|ui| {
                             let label = format!("{i:>4}");
                             if ui.selectable_label(selected, label).clicked() {
@@ -509,7 +634,7 @@ impl eframe::App for MoxApp {
                             ui.add_space(10.0);
                             ui.monospace(format!("{:>8}", cumulative[i]));
                             ui.add_space(10.0);
-                            ui.label(ty);
+                            ui.colored_label(color, ty);
                             ui.add_space(10.0);
                             ui.label(val);
                         });
