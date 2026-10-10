@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
+license.workspace = true
 
 [features]
 # 다른 크레이트의 테스트에서 FakeBackend/FakeClock을 쓰기 위한 기능
