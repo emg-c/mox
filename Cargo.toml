@@ -6,6 +6,7 @@ members = [
     "crates/mox-engine",
     "crates/mox-payload",
     "crates/mox-export",
+    "crates/mox-input",
     "crates/mox-player",
 ]
 
