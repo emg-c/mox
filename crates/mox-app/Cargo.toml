@@ -1,0 +1,27 @@
+[package]
+name = "mox-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "mox"
+path = "src/main.rs"
+
+[features]
+default = ["gui"]
+gui = ["dep:eframe", "dep:egui", "dep:rfd"]
+
+[dependencies]
+mox-format.workspace = true
+mox-edit.workspace = true
+mox-engine.workspace = true
+mox-input.workspace = true
+mox-payload.workspace = true
+mox-export.workspace = true
+tempfile.workspace = true
+clap = { version = "4.6", features = ["derive"] }
+eframe = { version = "0.33.3", optional = true }
+egui = { version = "0.33.3", optional = true }
+rfd = { version = "0.15", optional = true }
